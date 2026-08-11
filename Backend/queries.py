@@ -1,14 +1,17 @@
 GET_MATCHING_JOBS = """
 MATCH (u:User {name: $user_name})-[:HAS_SKILL]->(s:Skill)
 MATCH (j:Job)-[:REQUIRES]->(s)
+
 WITH j, count(s) AS matched_skills, collect(s.name) AS skills
+
 RETURN
     j.title AS job,
+    j.location AS location,
     matched_skills,
     skills
+
 ORDER BY matched_skills DESC
 """
-
 
 GET_JOB_DETAILS = """
 MATCH (j:Job {title: $job_title})-[:REQUIRES]->(skill:Skill)
@@ -29,11 +32,15 @@ RETURN required.name AS missing_skill
 """
 
 
+
 GET_COMPANY_RECOMMENDATIONS = """
-MATCH (j:Job)<-[:OFFERS]-(c:Company)-[:LOCATED_IN]->(city:City)
+MATCH (c:Company)-[:OFFERS]->(j:Job)
+
 RETURN
-    j.title AS job,
     c.name AS company,
-    city.name AS location
-ORDER BY job
+    j.title AS job,
+    j.location AS location
+
+ORDER BY c.name
 """
+

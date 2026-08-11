@@ -1,8 +1,13 @@
+
 import { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // ----------------------------------------
+  // State
+  // ----------------------------------------
 
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -16,8 +21,17 @@ function App() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Job Filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [locationFilter, setLocationFilter] = useState("All");
+  const [matchFilter, setMatchFilter] = useState("All");
+
+  // Company Filter
+  const [companyLocationFilter, setCompanyLocationFilter] =
+    useState("All");
+
   // ----------------------------------------
-  // Fetch recommended jobs
+  // Fetch Recommended Jobs
   // ----------------------------------------
 
   useEffect(() => {
@@ -30,18 +44,21 @@ function App() {
         return response.json();
       })
       .then((data) => {
-        setJobs(data.jobs || []);
+        console.log("Jobs API:", data);
+
+        setJobs(Array.isArray(data.jobs) ? data.jobs : []);
         setLoading(false);
       })
       .catch((error) => {
-        console.error(error);
+        console.error("JOBS ERROR:", error);
+
         setError("Unable to connect to CareerGraph API");
         setLoading(false);
       });
-  }, []);
+  }, [API_URL]);
 
   // ----------------------------------------
-  // Fetch companies
+  // Fetch Companies
   // ----------------------------------------
 
   useEffect(() => {
@@ -54,17 +71,26 @@ function App() {
         return response.json();
       })
       .then((data) => {
-        setCompanies(data.companies || []);
+        console.log("Companies API:", data);
+
+        setCompanies(
+          Array.isArray(data.companies)
+            ? data.companies
+            : []
+        );
+
         setCompaniesLoading(false);
       })
       .catch((error) => {
-        console.error(error);
+        console.error("COMPANY ERROR:", error);
+
+        setCompanies([]);
         setCompaniesLoading(false);
       });
-  }, []);
+  }, [API_URL]);
 
   // ----------------------------------------
-  // Career path
+  // Career Path
   // ----------------------------------------
 
   const handleViewCareerPath = async (jobTitle) => {
@@ -75,8 +101,11 @@ function App() {
     setError("");
 
     try {
+      // Job details
       const detailsResponse = await fetch(
-        `${API_URL}/api/career/job/${encodeURIComponent(jobTitle)}`
+        `${API_URL}/api/career/job/${encodeURIComponent(
+          jobTitle
+        )}`
       );
 
       if (!detailsResponse.ok) {
@@ -85,8 +114,11 @@ function App() {
 
       const detailsData = await detailsResponse.json();
 
+      // Missing skills
       const missingResponse = await fetch(
-        `${API_URL}/api/career/missing-skills/${encodeURIComponent(jobTitle)}`
+        `${API_URL}/api/career/missing-skills/${encodeURIComponent(
+          jobTitle
+        )}`
       );
 
       if (!missingResponse.ok) {
@@ -96,9 +128,14 @@ function App() {
       const missingData = await missingResponse.json();
 
       setJobDetails(detailsData.job);
-      setMissingSkills(missingData.missing_skills || []);
+      setMissingSkills(
+        Array.isArray(missingData.missing_skills)
+          ? missingData.missing_skills
+          : []
+      );
     } catch (error) {
-      console.error(error);
+      console.error("CAREER PATH ERROR:", error);
+
       setError("Unable to load career path");
     } finally {
       setDetailsLoading(false);
@@ -106,17 +143,154 @@ function App() {
   };
 
   // ----------------------------------------
-  // Calculate match percentage
+  // Calculate Match Percentage
   // ----------------------------------------
 
   const getMatchPercentage = (job) => {
     const totalSkills = 7;
 
+    const matchedSkills = Number(
+      job?.matched_skills || 0
+    );
+
     return Math.min(
-      Math.round((job.matched_skills / totalSkills) * 100),
+      Math.round(
+        (matchedSkills / totalSkills) * 100
+      ),
       100
     );
   };
+
+  // ----------------------------------------
+  // Job Locations
+  // ----------------------------------------
+
+  const locations = [
+    "All",
+    ...new Set(
+      jobs
+        .map((job) =>
+          String(job.location || "").trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+
+  // ----------------------------------------
+  // Company Locations
+  // ----------------------------------------
+
+  const companyLocations = [
+    "All",
+    ...new Set(
+      companies
+        .map((company) =>
+          String(company.location || "").trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+
+  // ----------------------------------------
+  // Filter Jobs
+  // ----------------------------------------
+
+  const filteredJobs = jobs.filter((job) => {
+    const search = searchTerm
+      .toLowerCase()
+      .trim();
+
+    const jobTitle = String(
+      job.job || ""
+    ).toLowerCase();
+
+    const jobSkills = Array.isArray(job.skills)
+      ? job.skills
+      : [];
+
+    const jobLocation = String(
+      job.location || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const selectedLocation =
+      locationFilter.trim().toLowerCase();
+
+    // Search
+    const matchesSearch =
+      !search ||
+      jobTitle.includes(search) ||
+      jobSkills.some((skill) =>
+        String(skill)
+          .toLowerCase()
+          .includes(search)
+      );
+
+    // Match percentage
+    const matchPercentage =
+      getMatchPercentage(job);
+
+    const matchesPercentage =
+      matchFilter === "All" ||
+      matchPercentage >= Number(matchFilter);
+
+    // Location
+    const matchesLocation =
+      selectedLocation === "all" ||
+      jobLocation === selectedLocation;
+
+    return (
+      matchesSearch &&
+      matchesPercentage &&
+      matchesLocation
+    );
+  });
+
+  // ----------------------------------------
+  // Filter Companies
+  // IMPORTANT:
+  // This must be OUTSIDE filteredJobs
+  // ----------------------------------------
+
+  const filteredCompanies = companies.filter(
+    (company) => {
+      if (companyLocationFilter === "All") {
+        return true;
+      }
+
+      return (
+        String(company.location || "")
+          .trim()
+          .toLowerCase() ===
+        companyLocationFilter
+          .trim()
+          .toLowerCase()
+      );
+    }
+  );
+
+  // ----------------------------------------
+  // Clear Job Filters
+  // ----------------------------------------
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setLocationFilter("All");
+    setMatchFilter("All");
+  };
+
+  // ----------------------------------------
+  // Clear Company Filter
+  // ----------------------------------------
+
+  const clearCompanyFilter = () => {
+    setCompanyLocationFilter("All");
+  };
+
+  // ----------------------------------------
+  // Render
+  // ----------------------------------------
 
   return (
     <div className="app">
@@ -127,19 +301,35 @@ function App() {
         <div className="header-inner">
 
           <div className="logo">
-            <div className="logo-icon">CG</div>
+            <div className="logo-icon">
+              CG
+            </div>
 
             <div>
               <h1>CareerGraph</h1>
-              <span>Career Intelligence Platform</span>
+
+              <span>
+                Career Intelligence Platform
+              </span>
             </div>
           </div>
 
           <nav>
-            <a href="#dashboard">Dashboard</a>
-            <a href="#jobs">Jobs</a>
-            <a href="#companies">Companies</a>
-            <a href="#skills">Skills</a>
+            <a href="#dashboard">
+              Dashboard
+            </a>
+
+            <a href="#jobs">
+              Jobs
+            </a>
+
+            <a href="#companies">
+              Companies
+            </a>
+
+            <a href="#skills">
+              Skills
+            </a>
           </nav>
 
           <button className="profile-button">
@@ -150,12 +340,14 @@ function App() {
         </div>
       </header>
 
-
       {/* ================= MAIN ================= */}
 
-      <main id="dashboard" className="container">
+      <main
+        id="dashboard"
+        className="container"
+      >
 
-        {/* HERO */}
+        {/* ================= HERO ================= */}
 
         <section className="hero">
 
@@ -167,25 +359,42 @@ function App() {
 
             <h2>
               Find the career path
-              <span> that's right for you.</span>
+              <span>
+                {" "}that's right for you.
+              </span>
             </h2>
 
             <p>
-              Discover jobs that match your skills and identify
-              exactly what you need to learn to reach your career goals.
+              Discover jobs that match your skills
+              and identify exactly what you need
+              to learn to reach your career goals.
             </p>
 
             <div className="search-box">
+
               <span>⌕</span>
 
               <input
                 type="text"
                 placeholder="Search jobs, skills or companies..."
+                value={searchTerm}
+                onChange={(e) =>
+                  setSearchTerm(e.target.value)
+                }
               />
 
-              <button>
+              <button
+                onClick={() => {
+                  document
+                    .getElementById("jobs")
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                    });
+                }}
+              >
                 Search
               </button>
+
             </div>
 
           </div>
@@ -193,84 +402,149 @@ function App() {
           <div className="hero-visual">
 
             <div className="graph-circle">
-              <div className="graph-node node-one">Java</div>
-              <div className="graph-node node-two">SQL</div>
-              <div className="graph-node node-three">Python</div>
-              <div className="graph-node node-four">Git</div>
+
+              <div className="graph-node node-one">
+                Java
+              </div>
+
+              <div className="graph-node node-two">
+                SQL
+              </div>
+
+              <div className="graph-node node-three">
+                Python
+              </div>
+
+              <div className="graph-node node-four">
+                Git
+              </div>
 
               <div className="graph-center">
-                <strong>Career</strong>
-                <span>Graph</span>
+                <strong>
+                  Career
+                </strong>
+
+                <span>
+                  Graph
+                </span>
               </div>
+
             </div>
 
           </div>
 
         </section>
-
 
         {/* ================= STATS ================= */}
 
         <section className="stats-section">
 
           <div className="stat-card">
-            <div className="stat-icon blue">💼</div>
-            <div>
-              <strong>{jobs.length}</strong>
-              <span>Recommended Jobs</span>
+
+            <div className="stat-icon blue">
+              💼
             </div>
+
+            <div>
+              <strong>
+                {jobs.length}
+              </strong>
+
+              <span>
+                Recommended Jobs
+              </span>
+            </div>
+
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon purple">⚡</div>
-            <div>
-              <strong>7</strong>
-              <span>Your Skills</span>
+
+            <div className="stat-icon purple">
+              ⚡
             </div>
+
+            <div>
+              <strong>
+                7
+              </strong>
+
+              <span>
+                Your Skills
+              </span>
+            </div>
+
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon green">🏢</div>
-            <div>
-              <strong>{companies.length}</strong>
-              <span>Companies</span>
+
+            <div className="stat-icon green">
+              🏢
             </div>
+
+            <div>
+              <strong>
+                {companies.length}
+              </strong>
+
+              <span>
+                Companies
+              </span>
+            </div>
+
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon orange">🎯</div>
+
+            <div className="stat-icon orange">
+              🎯
+            </div>
+
             <div>
+
               <strong>
                 {jobs.length > 0
                   ? `${Math.max(
-                      ...jobs.map(getMatchPercentage)
+                      ...jobs.map(
+                        getMatchPercentage
+                      )
                     )}%`
                   : "0%"}
               </strong>
 
-              <span>Best Match</span>
+              <span>
+                Best Match
+              </span>
+
             </div>
+
           </div>
 
         </section>
 
-
         {/* ================= SKILLS ================= */}
 
-        <section id="skills" className="section">
+        <section
+          id="skills"
+          className="section"
+        >
 
           <div className="section-header">
 
             <div>
+
               <span className="section-label">
                 YOUR PROFILE
               </span>
 
-              <h2>Your Skills</h2>
+              <h2>
+                Your Skills
+              </h2>
 
               <p>
-                Skills currently used to generate your recommendations.
+                Skills currently used to generate
+                your recommendations.
               </p>
+
             </div>
 
             <button className="secondary-button">
@@ -290,33 +564,50 @@ function App() {
               "CSS",
               "Git",
             ].map((skill) => (
-              <div className="skill-chip" key={skill}>
-                <span className="skill-check">✓</span>
+
+              <div
+                className="skill-chip"
+                key={skill}
+              >
+
+                <span className="skill-check">
+                  ✓
+                </span>
+
                 {skill}
+
               </div>
+
             ))}
 
           </div>
 
         </section>
 
-
         {/* ================= JOBS ================= */}
 
-        <section id="jobs" className="section">
+        <section
+          id="jobs"
+          className="section"
+        >
 
           <div className="section-header">
 
             <div>
+
               <span className="section-label">
                 OPPORTUNITIES
               </span>
 
-              <h2>Recommended Jobs</h2>
+              <h2>
+                Recommended Jobs
+              </h2>
 
               <p>
-                Jobs selected based on your current skill profile.
+                Jobs selected based on your
+                current skill profile.
               </p>
+
             </div>
 
             <button className="secondary-button">
@@ -325,133 +616,313 @@ function App() {
 
           </div>
 
+          {/* ================= JOB FILTERS ================= */}
 
-          {loading && (
-            <div className="loading-grid">
+          <div className="filters">
 
-              {[1, 2, 3].map((item) => (
-                <div className="skeleton-card" key={item}>
-                  <div></div>
-                  <div></div>
-                  <div></div>
-                </div>
-              ))}
+            {/* Location */}
+
+            <div className="filter-group">
+
+              <label>
+                Location
+              </label>
+
+              <select
+                value={locationFilter}
+                onChange={(e) =>
+                  setLocationFilter(
+                    e.target.value
+                  )
+                }
+              >
+
+                {locations.map(
+                  (location) => (
+
+                    <option
+                      key={location}
+                      value={location}
+                    >
+                      {location}
+                    </option>
+
+                  )
+                )}
+
+              </select>
 
             </div>
-          )}
 
+            {/* Match */}
 
-          {error && (
-            <div className="error-box">
-              <strong>⚠ Unable to load recommendations</strong>
-              <p>{error}</p>
+            <div className="filter-group">
+
+              <label>
+                Minimum Match
+              </label>
+
+              <select
+                value={matchFilter}
+                onChange={(e) =>
+                  setMatchFilter(
+                    e.target.value
+                  )
+                }
+              >
+
+                <option value="All">
+                  Any Match
+                </option>
+
+                <option value="50">
+                  50%+
+                </option>
+
+                <option value="60">
+                  60%+
+                </option>
+
+                <option value="70">
+                  70%+
+                </option>
+
+                <option value="80">
+                  80%+
+                </option>
+
+                <option value="90">
+                  90%+
+                </option>
+
+              </select>
+
             </div>
-          )}
 
+            <button
+              className="clear-filter"
+              onClick={clearFilters}
+            >
+              Clear Filters
+            </button>
 
-          {!loading && !error && jobs.length === 0 && (
-            <div className="empty-box">
-              No matching jobs found.
-            </div>
-          )}
+          </div>
 
+          {/* Results */}
 
           {!loading && !error && (
-            <div className="jobs-grid">
 
-              {jobs.map((job, index) => {
+            <div className="results-info">
 
-                const matchPercentage =
-                  getMatchPercentage(job);
+              Showing{" "}
 
-                return (
-                  <article
-                    className="job-card"
-                    key={index}
-                  >
+              <strong>
+                {filteredJobs.length}
+              </strong>{" "}
 
-                    <div className="job-top">
-
-                      <div className="job-icon">
-                        {job.job
-                          .split(" ")
-                          .map((word) => word[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </div>
-
-                      <div className="match-badge">
-                        {matchPercentage}% Match
-                      </div>
-
-                    </div>
-
-
-                    <h3>{job.job}</h3>
-
-                    <p className="job-description">
-                      A career opportunity matching
-                      your current technical skills.
-                    </p>
-
-
-                    <div className="match-progress">
-
-                      <div className="progress-header">
-                        <span>Skill Match</span>
-                        <strong>
-                          {job.matched_skills} skills
-                        </strong>
-                      </div>
-
-                      <div className="progress-bar">
-                        <div
-                          style={{
-                            width: `${matchPercentage}%`,
-                          }}
-                        ></div>
-                      </div>
-
-                    </div>
-
-
-                    <div className="card-divider"></div>
-
-
-                    <p className="card-label">
-                      Matching Skills
-                    </p>
-
-                    <div className="job-skills">
-
-                      {job.skills.map((skill) => (
-                        <span key={skill}>
-                          {skill}
-                        </span>
-                      ))}
-
-                    </div>
-
-
-                    <button
-                      className="career-button"
-                      onClick={() =>
-                        handleViewCareerPath(job.job)
-                      }
-                    >
-                      View Career Path
-                      <span>→</span>
-                    </button>
-
-                  </article>
-                );
-              })}
+              recommended jobs
 
             </div>
+
           )}
 
-        </section>
+          {/* Loading */}
 
+          {loading && (
+
+            <div className="loading-grid">
+
+              {[1, 2, 3].map(
+                (item) => (
+
+                  <div
+                    className="skeleton-card"
+                    key={item}
+                  >
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+          {/* Error */}
+
+          {error && (
+
+            <div className="error-box">
+
+              <strong>
+                ⚠ Unable to load recommendations
+              </strong>
+
+              <p>
+                {error}
+              </p>
+
+            </div>
+
+          )}
+
+          {/* Empty */}
+
+          {!loading &&
+            !error &&
+            filteredJobs.length === 0 && (
+
+              <div className="empty-box">
+
+                No jobs match your current filters.
+
+              </div>
+
+            )}
+
+          {/* Job Cards */}
+
+          {!loading &&
+            !error &&
+            filteredJobs.length > 0 && (
+
+              <div className="jobs-grid">
+
+                {filteredJobs.map(
+                  (job, index) => {
+
+                    const matchPercentage =
+                      getMatchPercentage(job);
+
+                    return (
+
+                      <article
+                        className="job-card"
+                        key={`${job.job}-${index}`}
+                      >
+
+                        <div className="job-top">
+
+                          <div className="job-icon">
+
+                            {(job.job || "")
+                              .split(" ")
+                              .map(
+                                (word) =>
+                                  word[0]
+                              )
+                              .join("")
+                              .slice(0, 2)}
+
+                          </div>
+
+                          <div className="match-badge">
+
+                            {matchPercentage}%
+                            {" "}Match
+
+                          </div>
+
+                        </div>
+
+                        <h3>
+                          {job.job}
+                        </h3>
+
+                        <p className="job-location">
+                          📍{" "}
+                          {job.location ||
+                            "Location not available"}
+                        </p>
+
+                        <p className="job-description">
+
+                          A career opportunity
+                          matching your current
+                          technical skills.
+
+                        </p>
+
+                        <div className="match-progress">
+
+                          <div className="progress-header">
+
+                            <span>
+                              Skill Match
+                            </span>
+
+                            <strong>
+                              {job.matched_skills}
+                              {" "}skills
+                            </strong>
+
+                          </div>
+
+                          <div className="progress-bar">
+
+                            <div
+                              style={{
+                                width:
+                                  `${matchPercentage}%`,
+                              }}
+                            ></div>
+
+                          </div>
+
+                        </div>
+
+                        <div className="card-divider"></div>
+
+                        <p className="card-label">
+                          Matching Skills
+                        </p>
+
+                        <div className="job-skills">
+
+                          {(job.skills || []).map(
+                            (skill) => (
+
+                              <span key={skill}>
+                                {skill}
+                              </span>
+
+                            )
+                          )}
+
+                        </div>
+
+                        <button
+                          className="career-button"
+                          onClick={() =>
+                            handleViewCareerPath(
+                              job.job
+                            )
+                          }
+                        >
+
+                          View Career Path
+
+                          <span>
+                            →
+                          </span>
+
+                        </button>
+
+                      </article>
+
+                    );
+
+                  }
+                )}
+
+              </div>
+
+            )}
+
+        </section>
 
         {/* ================= COMPANIES ================= */}
 
@@ -463,81 +934,163 @@ function App() {
           <div className="section-header">
 
             <div>
+
               <span className="section-label">
                 CAREER NETWORK
               </span>
 
-              <h2>Companies & Locations</h2>
+              <h2>
+                Companies & Locations
+              </h2>
 
               <p>
-                Explore companies connected to your career opportunities.
+                Explore companies connected to your
+                career opportunities.
               </p>
+
             </div>
 
           </div>
 
+          {/* Company Filter */}
 
-          {companiesLoading ? (
+          <div className="filters">
 
-            <div className="loading-message">
-              Loading companies...
+            <div className="filter-group">
+
+              <label>
+                Company Location
+              </label>
+
+              <select
+                value={companyLocationFilter}
+                onChange={(e) =>
+                  setCompanyLocationFilter(
+                    e.target.value
+                  )
+                }
+              >
+
+                {companyLocations.map(
+                  (location) => (
+
+                    <option
+                      key={location}
+                      value={location}
+                    >
+                      {location}
+                    </option>
+
+                  )
+                )}
+
+              </select>
+
             </div>
 
-          ) : companies.length === 0 ? (
+            <button
+              className="clear-filter"
+              onClick={clearCompanyFilter}
+            >
+              Clear
+            </button>
 
-            <div className="empty-box">
-              No company recommendations found.
-            </div>
+          </div>
 
-          ) : (
+          {/* Company Results */}
 
-            <div className="companies-grid">
+          {!companiesLoading && (
 
-              {companies.map((company, index) => (
+            <div className="results-info">
 
-                <div
-                  className="company-card"
-                  key={index}
-                >
+              Showing{" "}
 
-                  <div className="company-icon">
-                    🏢
-                  </div>
+              <strong>
+                {filteredCompanies.length}
+              </strong>{" "}
 
-                  <div className="company-content">
-
-                    <div className="company-title-row">
-
-                      <h3>
-                        {company.company}
-                      </h3>
-
-                      <span className="company-arrow">
-                        →
-                      </span>
-
-                    </div>
-
-                    <p className="company-job">
-                      {company.job}
-                    </p>
-
-                    <p className="company-location">
-                      📍 {company.location}
-                    </p>
-
-                  </div>
-
-                </div>
-
-              ))}
+              company opportunities
 
             </div>
 
           )}
 
-        </section>
+          {/* Company Loading */}
 
+          {companiesLoading && (
+
+            <div className="loading-message">
+              Loading companies...
+            </div>
+
+          )}
+
+          {/* Company Empty */}
+
+          {!companiesLoading &&
+            filteredCompanies.length === 0 && (
+
+              <div className="empty-box">
+
+                No companies found for this location.
+
+              </div>
+
+            )}
+
+          {/* Company Cards */}
+
+          {!companiesLoading &&
+            filteredCompanies.length > 0 && (
+
+              <div className="companies-grid">
+
+                {filteredCompanies.map(
+                  (company, index) => (
+
+                    <div
+                      className="company-card"
+                      key={`${company.company}-${company.job}-${index}`}
+                    >
+
+                      <div className="company-icon">
+                        🏢
+                      </div>
+
+                      <div className="company-content">
+
+                        <div className="company-title-row">
+
+                          <h3>
+                            {company.company}
+                          </h3>
+
+                          <span className="company-arrow">
+                            →
+                          </span>
+
+                        </div>
+
+                        <p className="company-job">
+                          💼 {company.job}
+                        </p>
+
+                        <p className="company-location">
+                          📍 {company.location}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+        </section>
 
         {/* ================= CAREER PATH ================= */}
 
@@ -548,156 +1101,218 @@ function App() {
             <div className="section-header">
 
               <div>
+
                 <span className="section-label">
                   CAREER ANALYSIS
                 </span>
 
-                <h2>Your Career Path</h2>
+                <h2>
+                  Your Career Path
+                </h2>
 
                 <p>
-                  Personalized analysis for {selectedJob}.
+                  Personalized analysis for{" "}
+                  {selectedJob}.
                 </p>
+
               </div>
 
             </div>
 
+            {/* Loading */}
 
             {detailsLoading && (
+
               <div className="career-loading">
                 Loading career analysis...
               </div>
+
             )}
 
+            {/* Career Details */}
 
-            {!detailsLoading && jobDetails && (
+            {!detailsLoading &&
+              jobDetails && (
 
-              <div className="career-card">
+                <div className="career-card">
 
-                <div className="career-header">
+                  <div className="career-header">
 
-                  <div>
+                    <div>
 
-                    <span className="target-label">
-                      TARGET CAREER
-                    </span>
+                      <span className="target-label">
+                        TARGET CAREER
+                      </span>
 
-                    <h3>
-                      {jobDetails.job}
-                    </h3>
+                      <h3>
+                        {jobDetails.job}
+                      </h3>
 
-                  </div>
+                    </div>
 
-                  <div className="target-icon">
-                    🎯
-                  </div>
-
-                </div>
-
-
-                <div className="career-info">
-
-                  <div>
-                    <span>Experience</span>
-                    <strong>
-                      {jobDetails.experience}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Job Type</span>
-                    <strong>
-                      {jobDetails.type}
-                    </strong>
-                  </div>
-
-                </div>
-
-
-                <div className="path-block">
-
-                  <h4>Required Skills</h4>
-
-                  <div className="required-skills">
-
-                    {jobDetails.required_skills.map(
-                      (skill) => (
-                        <span key={skill}>
-                          ✓ {skill}
-                        </span>
-                      )
-                    )}
+                    <div className="target-icon">
+                      🎯
+                    </div>
 
                   </div>
 
-                </div>
+                  <div className="career-info">
 
+                    <div>
 
-                <div className="path-block">
+                      <span>
+                        Experience
+                      </span>
 
-                  <h4>
-                    Skills You Need To Learn
-                  </h4>
+                      <strong>
+                        {jobDetails.experience}
+                      </strong>
 
-                  {missingSkills.length > 0 ? (
+                    </div>
 
-                    <div className="missing-skills">
+                    <div>
 
-                      {missingSkills.map(
+                      <span>
+                        Job Type
+                      </span>
+
+                      <strong>
+                        {jobDetails.type}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                  {/* Required Skills */}
+
+                  <div className="path-block">
+
+                    <h4>
+                      Required Skills
+                    </h4>
+
+                    <div className="required-skills">
+
+                      {(jobDetails.required_skills ||
+                        []).map(
                         (skill) => (
-                          <div key={skill}>
-                            <span>→</span>
-                            {skill}
-                          </div>
+
+                          <span key={skill}>
+                            ✓ {skill}
+                          </span>
+
                         )
                       )}
 
                     </div>
 
-                  ) : (
+                  </div>
 
-                    <div className="success-message">
-                      🎉 You already have all
-                      required skills!
+                  {/* Missing Skills */}
+
+                  <div className="path-block">
+
+                    <h4>
+                      Skills You Need To Learn
+                    </h4>
+
+                    {missingSkills.length > 0 ? (
+
+                      <div className="missing-skills">
+
+                        {missingSkills.map(
+                          (skill) => (
+
+                            <div key={skill}>
+
+                              <span>
+                                →
+                              </span>
+
+                              {skill}
+
+                            </div>
+
+                          )
+                        )}
+
+                      </div>
+
+                    ) : (
+
+                      <div className="success-message">
+
+                        🎉 You already have all
+                        required skills!
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                  {/* Career Flow */}
+
+                  <div className="career-flow">
+
+                    <div>
+
+                      <span>
+                        01
+                      </span>
+
+                      Your Skills
+
                     </div>
 
-                  )}
+                    <strong>
+                      →
+                    </strong>
+
+                    <div>
+
+                      <span>
+                        02
+                      </span>
+
+                      Skill Gap
+
+                    </div>
+
+                    <strong>
+                      →
+                    </strong>
+
+                    <div>
+
+                      <span>
+                        03
+                      </span>
+
+                      Target Job
+
+                    </div>
+
+                    <strong>
+                      →
+                    </strong>
+
+                    <div>
+
+                      <span>
+                        04
+                      </span>
+
+                      Career
+
+                    </div>
+
+                  </div>
 
                 </div>
 
-
-                <div className="career-flow">
-
-                  <div>
-                    <span>01</span>
-                    Your Skills
-                  </div>
-
-                  <strong>→</strong>
-
-                  <div>
-                    <span>02</span>
-                    Skill Gap
-                  </div>
-
-                  <strong>→</strong>
-
-                  <div>
-                    <span>03</span>
-                    Target Job
-                  </div>
-
-                  <strong>→</strong>
-
-                  <div>
-                    <span>04</span>
-                    Career
-                  </div>
-
-                </div>
-
-              </div>
-
-            )}
+              )}
 
           </section>
 
@@ -705,16 +1320,20 @@ function App() {
 
       </main>
 
-
       {/* ================= FOOTER ================= */}
 
       <footer className="footer">
 
         <div>
-          <strong>CareerGraph</strong>
+
+          <strong>
+            CareerGraph
+          </strong>
+
           <span>
             Graph-Based Career Recommendation System
           </span>
+
         </div>
 
         <p>
