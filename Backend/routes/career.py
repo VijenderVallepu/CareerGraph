@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from database import get_driver
+
 from queries import (
     GET_MATCHING_JOBS,
     GET_JOB_DETAILS,
@@ -15,10 +16,15 @@ router = APIRouter(
 )
 
 
+# ----------------------------------------
+# Recommended Jobs
+# ----------------------------------------
+
 @router.get("/jobs")
 def get_matching_jobs(user_name: str = "Vijender"):
 
     try:
+
         driver = get_driver()
 
         with driver.session() as session:
@@ -28,7 +34,10 @@ def get_matching_jobs(user_name: str = "Vijender"):
                 user_name=user_name
             )
 
-            jobs = [record.data() for record in result]
+            jobs = [
+                record.data()
+                for record in result
+            ]
 
         return {
             "success": True,
@@ -37,11 +46,17 @@ def get_matching_jobs(user_name: str = "Vijender"):
 
     except Exception as e:
 
+        print("JOBS ERROR:", repr(e))
+
         raise HTTPException(
             status_code=503,
-            detail="Unable to connect to CareerGraph database"
+           detail="Unable to retrieve recommended jobs"
         )
 
+
+# ----------------------------------------
+# Job Details
+# ----------------------------------------
 
 @router.get("/job/{job_title}")
 def get_job_details(job_title: str):
@@ -60,6 +75,7 @@ def get_job_details(job_title: str):
             record = result.single()
 
             if not record:
+
                 raise HTTPException(
                     status_code=404,
                     detail="Job not found"
@@ -71,15 +87,22 @@ def get_job_details(job_title: str):
             }
 
     except HTTPException:
+
         raise
 
-    except Exception:
+    except Exception as e:
+
+        print("JOB DETAILS ERROR:", repr(e))
 
         raise HTTPException(
             status_code=503,
-            detail="Unable to connect to CareerGraph database"
+           detail="Unable to retrieve job details"
         )
 
+
+# ----------------------------------------
+# Missing Skills
+# ----------------------------------------
 
 @router.get("/missing-skills/{job_title}")
 def get_missing_skills(
@@ -110,18 +133,25 @@ def get_missing_skills(
             "missing_skills": skills
         }
 
-    except Exception:
+    except Exception as e:
+
+        print("MISSING SKILLS ERROR:", repr(e))
 
         raise HTTPException(
             status_code=503,
-            detail="Unable to connect to CareerGraph database"
+            detail="Unable to retrieve missing skills"
         )
 
+
+# ----------------------------------------
+# Companies
+# ----------------------------------------
 
 @router.get("/companies")
 def get_company_recommendations():
 
     try:
+
         driver = get_driver()
 
         with driver.session() as session:
@@ -142,7 +172,7 @@ def get_company_recommendations():
 
     except Exception as e:
 
-        print("Company recommendation error:", e)
+        print("COMPANY ERROR:", repr(e))
 
         raise HTTPException(
             status_code=503,
