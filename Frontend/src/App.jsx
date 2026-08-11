@@ -20,7 +20,7 @@ function App() {
 
   const [error, setError] = useState("");
 
-  const API_URL = "http://localhost:8000";
+  const API_URL = "https://careergraph-545y.onrender.com";
 
 
   // ----------------------------------------
