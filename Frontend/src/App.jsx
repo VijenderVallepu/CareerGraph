@@ -2,12 +2,9 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
-  // ----------------------------------------
-  // State
-  // ----------------------------------------
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const [jobs, setJobs] = useState([]);
-
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobDetails, setJobDetails] = useState(null);
   const [missingSkills, setMissingSkills] = useState([]);
@@ -17,23 +14,15 @@ function App() {
 
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
-
   const [error, setError] = useState("");
 
-  const API_URL = "https://careergraph-545y.onrender.com";
-
-
   // ----------------------------------------
-  // Get recommended jobs
+  // Fetch recommended jobs
   // ----------------------------------------
 
   useEffect(() => {
-    console.log("Fetching recommended jobs...");
-
     fetch(`${API_URL}/api/career/jobs`)
       .then((response) => {
-        console.log("Jobs response:", response.status);
-
         if (!response.ok) {
           throw new Error("Failed to fetch jobs");
         }
@@ -41,34 +30,23 @@ function App() {
         return response.json();
       })
       .then((data) => {
-        console.log("Jobs data:", data);
-
         setJobs(data.jobs || []);
         setLoading(false);
       })
       .catch((error) => {
-        console.error("Jobs API error:", error);
-
+        console.error(error);
         setError("Unable to connect to CareerGraph API");
         setLoading(false);
       });
   }, []);
 
-
   // ----------------------------------------
-  // Get companies and locations
+  // Fetch companies
   // ----------------------------------------
 
   useEffect(() => {
-    console.log("Fetching companies...");
-
     fetch(`${API_URL}/api/career/companies`)
       .then((response) => {
-        console.log(
-          "Companies response status:",
-          response.status
-        );
-
         if (!response.ok) {
           throw new Error("Failed to fetch companies");
         }
@@ -76,41 +54,29 @@ function App() {
         return response.json();
       })
       .then((data) => {
-        console.log("Companies data:", data);
-
         setCompanies(data.companies || []);
         setCompaniesLoading(false);
       })
       .catch((error) => {
-        console.error("Companies API error:", error);
-
+        console.error(error);
         setCompaniesLoading(false);
       });
   }, []);
 
-
   // ----------------------------------------
-  // Get career path
+  // Career path
   // ----------------------------------------
 
   const handleViewCareerPath = async (jobTitle) => {
     setSelectedJob(jobTitle);
-
     setDetailsLoading(true);
-
     setJobDetails(null);
-
     setMissingSkills([]);
+    setError("");
 
     try {
-      // ------------------------------------
-      // Get job details
-      // ------------------------------------
-
       const detailsResponse = await fetch(
-        `${API_URL}/api/career/job/${encodeURIComponent(
-          jobTitle
-        )}`
+        `${API_URL}/api/career/job/${encodeURIComponent(jobTitle)}`
       );
 
       if (!detailsResponse.ok) {
@@ -119,15 +85,8 @@ function App() {
 
       const detailsData = await detailsResponse.json();
 
-
-      // ------------------------------------
-      // Get missing skills
-      // ------------------------------------
-
       const missingResponse = await fetch(
-        `${API_URL}/api/career/missing-skills/${encodeURIComponent(
-          jobTitle
-        )}`
+        `${API_URL}/api/career/missing-skills/${encodeURIComponent(jobTitle)}`
       );
 
       if (!missingResponse.ok) {
@@ -136,202 +95,205 @@ function App() {
 
       const missingData = await missingResponse.json();
 
-
-      // ------------------------------------
-      // Update state
-      // ------------------------------------
-
       setJobDetails(detailsData.job);
-
-      setMissingSkills(
-        missingData.missing_skills || []
-      );
-
+      setMissingSkills(missingData.missing_skills || []);
     } catch (error) {
-      console.error("Career path error:", error);
-
+      console.error(error);
       setError("Unable to load career path");
-
     } finally {
       setDetailsLoading(false);
     }
   };
 
+  // ----------------------------------------
+  // Calculate match percentage
+  // ----------------------------------------
 
-  // ----------------------------------------
-  // UI
-  // ----------------------------------------
+  const getMatchPercentage = (job) => {
+    const totalSkills = 7;
+
+    return Math.min(
+      Math.round((job.matched_skills / totalSkills) * 100),
+      100
+    );
+  };
 
   return (
     <div className="app">
 
-      {/* ---------------------------------- */}
-      {/* HEADER */}
-      {/* ---------------------------------- */}
+      {/* ================= HEADER ================= */}
 
       <header className="header">
+        <div className="header-inner">
 
-        <h1>CareerGraph</h1>
+          <div className="logo">
+            <div className="logo-icon">CG</div>
 
-        <p>
-          Graph-Based Career Recommendation System
-        </p>
+            <div>
+              <h1>CareerGraph</h1>
+              <span>Career Intelligence Platform</span>
+            </div>
+          </div>
 
+          <nav>
+            <a href="#dashboard">Dashboard</a>
+            <a href="#jobs">Jobs</a>
+            <a href="#companies">Companies</a>
+            <a href="#skills">Skills</a>
+          </nav>
+
+          <button className="profile-button">
+            <span>V</span>
+            Vijender
+          </button>
+
+        </div>
       </header>
 
 
-      <main className="container">
+      {/* ================= MAIN ================= */}
 
-        {/* -------------------------------- */}
+      <main id="dashboard" className="container">
+
         {/* HERO */}
-        {/* -------------------------------- */}
 
         <section className="hero">
 
-          <h2>
-            Find Your Best Career Opportunities
-          </h2>
+          <div className="hero-content">
 
-          <p>
-            Discover jobs based on the skills
-            you already have.
-          </p>
+            <span className="hero-badge">
+              ✦ AI-Powered Career Recommendations
+            </span>
 
-        </section>
+            <h2>
+              Find the career path
+              <span> that's right for you.</span>
+            </h2>
 
+            <p>
+              Discover jobs that match your skills and identify
+              exactly what you need to learn to reach your career goals.
+            </p>
 
-        {/* -------------------------------- */}
-        {/* YOUR SKILLS */}
-        {/* -------------------------------- */}
+            <div className="search-box">
+              <span>⌕</span>
 
-        <section className="skills-section">
+              <input
+                type="text"
+                placeholder="Search jobs, skills or companies..."
+              />
 
-          <h2>Your Skills</h2>
+              <button>
+                Search
+              </button>
+            </div>
 
-          <div className="skills">
+          </div>
 
-            <span>Java</span>
+          <div className="hero-visual">
 
-            <span>Python</span>
+            <div className="graph-circle">
+              <div className="graph-node node-one">Java</div>
+              <div className="graph-node node-two">SQL</div>
+              <div className="graph-node node-three">Python</div>
+              <div className="graph-node node-four">Git</div>
 
-            <span>SQL</span>
-
-            <span>JavaScript</span>
-
-            <span>HTML</span>
-
-            <span>CSS</span>
-
-            <span>Git</span>
+              <div className="graph-center">
+                <strong>Career</strong>
+                <span>Graph</span>
+              </div>
+            </div>
 
           </div>
 
         </section>
 
 
-        {/* -------------------------------- */}
-        {/* RECOMMENDED JOBS */}
-        {/* -------------------------------- */}
+        {/* ================= STATS ================= */}
 
-        <section className="jobs-section">
+        <section className="stats-section">
 
-          <h2>Recommended Jobs</h2>
-
-
-          {/* Loading */}
-
-          {loading && (
-            <div className="message">
-              Loading career recommendations...
+          <div className="stat-card">
+            <div className="stat-icon blue">💼</div>
+            <div>
+              <strong>{jobs.length}</strong>
+              <span>Recommended Jobs</span>
             </div>
-          )}
+          </div>
 
-
-          {/* Error */}
-
-          {error && (
-            <div className="error">
-              {error}
+          <div className="stat-card">
+            <div className="stat-icon purple">⚡</div>
+            <div>
+              <strong>7</strong>
+              <span>Your Skills</span>
             </div>
-          )}
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon green">🏢</div>
+            <div>
+              <strong>{companies.length}</strong>
+              <span>Companies</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon orange">🎯</div>
+            <div>
+              <strong>
+                {jobs.length > 0
+                  ? `${Math.max(
+                      ...jobs.map(getMatchPercentage)
+                    )}%`
+                  : "0%"}
+              </strong>
+
+              <span>Best Match</span>
+            </div>
+          </div>
+
+        </section>
 
 
-          {/* No jobs */}
+        {/* ================= SKILLS ================= */}
 
-          {!loading &&
-            !error &&
-            jobs.length === 0 && (
+        <section id="skills" className="section">
 
-              <div className="message">
-                No matching jobs found.
+          <div className="section-header">
+
+            <div>
+              <span className="section-label">
+                YOUR PROFILE
+              </span>
+
+              <h2>Your Skills</h2>
+
+              <p>
+                Skills currently used to generate your recommendations.
+              </p>
+            </div>
+
+            <button className="secondary-button">
+              + Add Skill
+            </button>
+
+          </div>
+
+          <div className="skills-container">
+
+            {[
+              "Java",
+              "Python",
+              "SQL",
+              "JavaScript",
+              "HTML",
+              "CSS",
+              "Git",
+            ].map((skill) => (
+              <div className="skill-chip" key={skill}>
+                <span className="skill-check">✓</span>
+                {skill}
               </div>
-
-            )}
-
-
-          {/* Jobs */}
-
-          <div className="jobs-grid">
-
-            {jobs.map((job, index) => (
-
-              <div
-                className="job-card"
-                key={index}
-              >
-
-                <div className="job-header">
-
-                  <h3>
-                    {job.job}
-                  </h3>
-
-                  <span className="match">
-
-                    {job.matched_skills}
-
-                    {" "}
-
-                    skills matched
-
-                  </span>
-
-                </div>
-
-
-                <p className="label">
-                  Matching Skills
-                </p>
-
-
-                <div className="skill-list">
-
-                  {job.skills &&
-                    job.skills.map((skill) => (
-
-                      <span key={skill}>
-                        {skill}
-                      </span>
-
-                    ))}
-
-                </div>
-
-
-                <button
-                  onClick={() =>
-                    handleViewCareerPath(
-                      job.job
-                    )
-                  }
-                >
-
-                  View Career Path →
-
-                </button>
-
-              </div>
-
             ))}
 
           </div>
@@ -339,252 +301,427 @@ function App() {
         </section>
 
 
-       {/* -------------------------------- */}
-{/* COMPANIES & LOCATIONS */}
-{/* -------------------------------- */}
+        {/* ================= JOBS ================= */}
 
-<section className="companies-section">
+        <section id="jobs" className="section">
 
-  <h2>Companies & Locations</h2>
-
-  <p className="section-description">
-    Explore companies offering jobs in your career graph.
-  </p>
-
-  {companiesLoading && (
-    <div className="message">
-      Loading companies...
-    </div>
-  )}
-
-  {!companiesLoading &&
-    companies.length === 0 && (
-      <div className="message">
-        No company recommendations found.
-      </div>
-    )}
-
-  {!companiesLoading &&
-    companies.length > 0 && (
-
-      <div className="companies-grid">
-
-        {Object.entries(
-          companies.reduce((grouped, item) => {
-
-            if (!grouped[item.company]) {
-              grouped[item.company] = {
-                location: item.location,
-                jobs: []
-              };
-            }
-
-            grouped[item.company].jobs.push(
-              item.job
-            );
-
-            return grouped;
-
-          }, {})
-        ).map(([companyName, companyData]) => (
-
-          <div
-            className="company-card"
-            key={companyName}
-          >
-
-            <div className="company-icon">
-              🏢
-            </div>
+          <div className="section-header">
 
             <div>
+              <span className="section-label">
+                OPPORTUNITIES
+              </span>
 
-              <h3>
-                {companyName}
-              </h3>
+              <h2>Recommended Jobs</h2>
 
-              <p className="company-location">
-                📍 {companyData.location}
+              <p>
+                Jobs selected based on your current skill profile.
               </p>
+            </div>
 
-              <p className="label">
-                Available Jobs
-              </p>
+            <button className="secondary-button">
+              View All →
+            </button>
 
-              <div className="company-jobs">
+          </div>
 
-                {companyData.jobs.map(
-                  (job, index) => (
 
-                    <span
-                      key={`${job}-${index}`}
+          {loading && (
+            <div className="loading-grid">
+
+              {[1, 2, 3].map((item) => (
+                <div className="skeleton-card" key={item}>
+                  <div></div>
+                  <div></div>
+                  <div></div>
+                </div>
+              ))}
+
+            </div>
+          )}
+
+
+          {error && (
+            <div className="error-box">
+              <strong>⚠ Unable to load recommendations</strong>
+              <p>{error}</p>
+            </div>
+          )}
+
+
+          {!loading && !error && jobs.length === 0 && (
+            <div className="empty-box">
+              No matching jobs found.
+            </div>
+          )}
+
+
+          {!loading && !error && (
+            <div className="jobs-grid">
+
+              {jobs.map((job, index) => {
+
+                const matchPercentage =
+                  getMatchPercentage(job);
+
+                return (
+                  <article
+                    className="job-card"
+                    key={index}
+                  >
+
+                    <div className="job-top">
+
+                      <div className="job-icon">
+                        {job.job
+                          .split(" ")
+                          .map((word) => word[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </div>
+
+                      <div className="match-badge">
+                        {matchPercentage}% Match
+                      </div>
+
+                    </div>
+
+
+                    <h3>{job.job}</h3>
+
+                    <p className="job-description">
+                      A career opportunity matching
+                      your current technical skills.
+                    </p>
+
+
+                    <div className="match-progress">
+
+                      <div className="progress-header">
+                        <span>Skill Match</span>
+                        <strong>
+                          {job.matched_skills} skills
+                        </strong>
+                      </div>
+
+                      <div className="progress-bar">
+                        <div
+                          style={{
+                            width: `${matchPercentage}%`,
+                          }}
+                        ></div>
+                      </div>
+
+                    </div>
+
+
+                    <div className="card-divider"></div>
+
+
+                    <p className="card-label">
+                      Matching Skills
+                    </p>
+
+                    <div className="job-skills">
+
+                      {job.skills.map((skill) => (
+                        <span key={skill}>
+                          {skill}
+                        </span>
+                      ))}
+
+                    </div>
+
+
+                    <button
+                      className="career-button"
+                      onClick={() =>
+                        handleViewCareerPath(job.job)
+                      }
                     >
-                      {job}
-                    </span>
+                      View Career Path
+                      <span>→</span>
+                    </button>
 
-                  )
-                )}
+                  </article>
+                );
+              })}
 
-              </div>
+            </div>
+          )}
 
+        </section>
+
+
+        {/* ================= COMPANIES ================= */}
+
+        <section
+          id="companies"
+          className="section companies-section"
+        >
+
+          <div className="section-header">
+
+            <div>
+              <span className="section-label">
+                CAREER NETWORK
+              </span>
+
+              <h2>Companies & Locations</h2>
+
+              <p>
+                Explore companies connected to your career opportunities.
+              </p>
             </div>
 
           </div>
 
-        ))}
 
-      </div>
+          {companiesLoading ? (
 
-    )}
+            <div className="loading-message">
+              Loading companies...
+            </div>
 
-</section>
+          ) : companies.length === 0 ? (
 
-        {/* -------------------------------- */}
-        {/* CAREER PATH */}
-        {/* -------------------------------- */}
+            <div className="empty-box">
+              No company recommendations found.
+            </div>
+
+          ) : (
+
+            <div className="companies-grid">
+
+              {companies.map((company, index) => (
+
+                <div
+                  className="company-card"
+                  key={index}
+                >
+
+                  <div className="company-icon">
+                    🏢
+                  </div>
+
+                  <div className="company-content">
+
+                    <div className="company-title-row">
+
+                      <h3>
+                        {company.company}
+                      </h3>
+
+                      <span className="company-arrow">
+                        →
+                      </span>
+
+                    </div>
+
+                    <p className="company-job">
+                      {company.job}
+                    </p>
+
+                    <p className="company-location">
+                      📍 {company.location}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          )}
+
+        </section>
+
+
+        {/* ================= CAREER PATH ================= */}
 
         {selectedJob && (
 
-          <section className="career-path">
+          <section className="career-section">
 
-            <h2>
-              Career Path
-            </h2>
+            <div className="section-header">
 
+              <div>
+                <span className="section-label">
+                  CAREER ANALYSIS
+                </span>
 
-            {/* Loading */}
+                <h2>Your Career Path</h2>
 
-            {detailsLoading && (
-
-              <div className="message">
-
-                Loading career path...
-
+                <p>
+                  Personalized analysis for {selectedJob}.
+                </p>
               </div>
 
+            </div>
+
+
+            {detailsLoading && (
+              <div className="career-loading">
+                Loading career analysis...
+              </div>
             )}
 
 
-            {/* Career details */}
+            {!detailsLoading && jobDetails && (
 
-            {!detailsLoading &&
-              jobDetails && (
+              <div className="career-card">
 
-                <div className="career-card">
+                <div className="career-header">
 
-                  <h3>
-                    {jobDetails.job}
-                  </h3>
+                  <div>
 
+                    <span className="target-label">
+                      TARGET CAREER
+                    </span>
 
-                  {/* Job info */}
-
-                  <div className="job-info">
-
-                    <div>
-
-                      <strong>
-                        Experience
-                      </strong>
-
-                      <p>
-                        {jobDetails.experience}
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <strong>
-                        Job Type
-                      </strong>
-
-                      <p>
-                        {jobDetails.type}
-                      </p>
-
-                    </div>
+                    <h3>
+                      {jobDetails.job}
+                    </h3>
 
                   </div>
 
-
-                  {/* Required skills */}
-
-                  <div className="path-section">
-
-                    <h4>
-                      Required Skills
-                    </h4>
-
-
-                    <div className="skill-list">
-
-                      {jobDetails.required_skills &&
-                        jobDetails.required_skills.map(
-                          (skill) => (
-
-                            <span key={skill}>
-                              {skill}
-                            </span>
-
-                          )
-                        )}
-
-                    </div>
-
+                  <div className="target-icon">
+                    🎯
                   </div>
 
-
-                  {/* Missing skills */}
-
-                  <div className="path-section">
-
-                    <h4>
-                      Skills to Learn
-                    </h4>
+                </div>
 
 
-                    {missingSkills.length > 0 ? (
+                <div className="career-info">
 
-                      <div className="missing-skills">
+                  <div>
+                    <span>Experience</span>
+                    <strong>
+                      {jobDetails.experience}
+                    </strong>
+                  </div>
 
-                        {missingSkills.map(
-                          (skill) => (
+                  <div>
+                    <span>Job Type</span>
+                    <strong>
+                      {jobDetails.type}
+                    </strong>
+                  </div>
 
-                            <span key={skill}>
+                </div>
 
-                              → {skill}
 
-                            </span>
+                <div className="path-block">
 
-                          )
-                        )}
+                  <h4>Required Skills</h4>
 
-                      </div>
+                  <div className="required-skills">
 
-                    ) : (
-
-                      <p className="success-text">
-
-                        🎉 You already have all
-                        required skills!
-
-                      </p>
-
+                    {jobDetails.required_skills.map(
+                      (skill) => (
+                        <span key={skill}>
+                          ✓ {skill}
+                        </span>
+                      )
                     )}
 
                   </div>
 
                 </div>
 
-              )}
+
+                <div className="path-block">
+
+                  <h4>
+                    Skills You Need To Learn
+                  </h4>
+
+                  {missingSkills.length > 0 ? (
+
+                    <div className="missing-skills">
+
+                      {missingSkills.map(
+                        (skill) => (
+                          <div key={skill}>
+                            <span>→</span>
+                            {skill}
+                          </div>
+                        )
+                      )}
+
+                    </div>
+
+                  ) : (
+
+                    <div className="success-message">
+                      🎉 You already have all
+                      required skills!
+                    </div>
+
+                  )}
+
+                </div>
+
+
+                <div className="career-flow">
+
+                  <div>
+                    <span>01</span>
+                    Your Skills
+                  </div>
+
+                  <strong>→</strong>
+
+                  <div>
+                    <span>02</span>
+                    Skill Gap
+                  </div>
+
+                  <strong>→</strong>
+
+                  <div>
+                    <span>03</span>
+                    Target Job
+                  </div>
+
+                  <strong>→</strong>
+
+                  <div>
+                    <span>04</span>
+                    Career
+                  </div>
+
+                </div>
+
+              </div>
+
+            )}
 
           </section>
 
         )}
 
       </main>
+
+
+      {/* ================= FOOTER ================= */}
+
+      <footer className="footer">
+
+        <div>
+          <strong>CareerGraph</strong>
+          <span>
+            Graph-Based Career Recommendation System
+          </span>
+        </div>
+
+        <p>
+          Built with React • FastAPI • Neo4j
+        </p>
+
+      </footer>
 
     </div>
   );
